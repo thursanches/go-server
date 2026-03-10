@@ -1,19 +1,29 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"go-server/internal/handlers"
 	"go-server/internal/repository"
 	"log"
 	"net/http"
+
+	_ "github.com/glebarez/go-sqlite" // Driver do SQLite
 )
 
 func main() {
-	// Inicializa dependências
-	repo := repository.NewPostRepository()
+	// O sql.Open CRIA o arquivo .db se ele não existir
+	db, err := sql.Open("sqlite", "./meu_banco.db")
+	if err != nil {
+		log.Fatal("Erro ao abrir o banco:", err)
+	}
+
+	defer db.Close()
+
+	// Passamos o db para o repositório
+	repo := repository.NewPostRepository(db)
 	h := &handlers.PostHandler{Repo: repo}
 
-	// Rotas
 	mux := http.NewServeMux()
 	mux.HandleFunc("/posts", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -27,9 +37,9 @@ func main() {
 	})
 
 	mux.HandleFunc("/posts/", func(w http.ResponseWriter, r *http.Request) {
-
 		if r.URL.Path == "/posts/" {
 			http.Error(w, "ID is required", http.StatusBadRequest)
+			return
 		}
 		switch r.Method {
 		case http.MethodGet:
