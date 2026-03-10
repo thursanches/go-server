@@ -1,0 +1,14 @@
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+/go-server
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+.env
