@@ -1,67 +1,64 @@
 package repository
 
 import (
+	"database/sql"
 	"go-server/internal/models"
-	"sync"
 )
 
 type PostRepository struct {
-	posts  map[int]models.Post
-	nextID int
-	mu     sync.Mutex
+	db *sql.DB
 }
 
-func NewPostRepository() *PostRepository {
-	return &PostRepository{
-		posts:  make(map[int]models.Post),
-		nextID: 1,
-	}
+func NewPostRepository(db *sql.DB) *PostRepository {
+	// Criamos a tabela automaticamente no início
+	query := `CREATE TABLE IF NOT EXISTS posts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		body TEXT
+	);`
+	db.Exec(query)
+
+	return &PostRepository{db: db}
 }
 
 func (r *PostRepository) Create(p models.Post) models.Post {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	p.ID = r.nextID
-	r.nextID++
-	r.posts[p.ID] = p
+	res, _ := r.db.Exec("INSERT INTO posts (body) VALUES (?)", p.Body)
+	id, _ := res.LastInsertId()
+	p.ID = int(id)
 	return p
 }
 
 func (r *PostRepository) GetAll() []models.Post {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	ps := make([]models.Post, 0, len(r.posts))
-	for _, p := range r.posts {
+	rows, _ := r.db.Query("SELECT id, body FROM posts")
+	defer rows.Close()
+
+	var ps []models.Post
+	for rows.Next() {
+		var p models.Post
+		rows.Scan(&p.ID, &p.Body)
 		ps = append(ps, p)
 	}
 	return ps
 }
 
 func (r *PostRepository) GetByID(id int) (models.Post, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	p, ok := r.posts[id]
-	return p, ok
-}
-
-func (r *PostRepository) Delete(id int) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if _, ok := r.posts[id]; !ok {
-		return false
+	var p models.Post
+	err := r.db.QueryRow("SELECT id, body FROM posts WHERE id = ?", id).Scan(&p.ID, &p.Body)
+	if err == sql.ErrNoRows {
+		return p, false
 	}
-	delete(r.posts, id)
-	return true
+	return p, true
 }
 
 func (r *PostRepository) Update(id int, body string) (models.Post, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	p, ok := r.posts[id]
-	if !ok {
-		return p, false
+	_, err := r.db.Exec("UPDATE posts SET body = ? WHERE id = ?", body, id)
+	if err != nil {
+		return models.Post{}, false
 	}
-	p.Body = body
-	r.posts[id] = p
-	return p, true
+	return models.Post{ID: id, Body: body}, true
+}
+
+func (r *PostRepository) Delete(id int) bool {
+	res, _ := r.db.Exec("DELETE FROM posts WHERE id = ?", id)
+	count, _ := res.RowsAffected()
+	return count > 0
 }
