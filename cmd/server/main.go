@@ -53,6 +53,8 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/posts/published", h.ListPostsPublished)
+
 	fmt.Println("Server running at :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
