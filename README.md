@@ -16,3 +16,6 @@ http://localhost:8080/posts
 
 To Get by ID, Update or Delete
 http://localhost:8080/posts/id
+
+To See All Publisheds
+http://localhost:8080/posts/published
